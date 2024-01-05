@@ -141,7 +141,7 @@ def show_schedule_list(message):
         else:
             weekday = [info for _, info in schedule_weekdays if info['num'] == job['day_of_week']][0]
             sub_text += f'По {weekday["ru"]} '
-        sub_text += f'в {job["hour"]}:{job["minute"] if len(job["minute"]) > 1 else '0' + job["minute"]}'
+        sub_text += f'в {job["hour"]}:{job["minute"] if len(job["minute"]) > 1 else "0" + job["minute"]}'
         text += sub_text + '\n'
 
     markup = types.InlineKeyboardMarkup()
@@ -320,7 +320,7 @@ def check_input_pressure(message, time_of_day):
         ad, pulse = pressure[0], pressure[1]
         measure_id = add_measure(message.chat.id, date, time, time_of_day, ad, pulse)
 
-        text = f'<b>Показатели успешно записаны!</b>\n\n(id={measure_id}) Дата и время: {date} {time}\nВремя суток: {"☀️Утро" if time_of_day == 'morning' else "🌙Вечер"}\nАД: {ad} пульс: {pulse}'
+        text = f'<b>Показатели успешно записаны!</b>\n\n(id={measure_id}) Дата и время: {date} {time}\nВремя суток: {"☀️Утро" if time_of_day == "morning" else "🌙Вечер"}\nАД: {ad} пульс: {pulse}'
         bot.send_message(message.chat.id, text, parse_mode='html')
     else:
         bot.delete_message(message.chat.id, message.message_id - 1)
