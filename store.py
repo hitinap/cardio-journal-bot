@@ -19,7 +19,7 @@ def write_csv(filepath, filedata):
 
 
 def get_next_id(listdata, id_value):
-    ids = list(map(lambda row: row[id_value], listdata))
+    ids = list(map(lambda row: int(row[id_value]), listdata))
     return str(max(ids) + 1) if len(ids) > 0 else '0'
 
 
