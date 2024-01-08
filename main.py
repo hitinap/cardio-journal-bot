@@ -1,6 +1,7 @@
 import re
 import csv
 import telebot
+from . import store
 from telebot import types
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
