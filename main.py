@@ -7,7 +7,7 @@ from telebot import types
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 
-bot = telebot.TeleBot('6476139399:AAGXvJqOi3hJSgkVuFc_xh5wwKja5Ev_xsA')
+bot = telebot.TeleBot('')
 scheduler = BackgroundScheduler()
 
 scheduler_jobs = list(store.read_csv('store/schedules.csv', store.SCHEDULES_FIELDNAMES))
