@@ -151,7 +151,7 @@ def write_headache_next_step(message, current_datetime=None):
 
     text = 'Оцените свою боль по шкале от 1 до 10, где 1 - боль почти не ощущается, а 10 - боль невозможно терпеть без обезболивающего.'
     markup = types.InlineKeyboardMarkup(row_width=5)
-    markup.add(*[types.InlineKeyboardButton(text=str(i), callback_data=f'write_headache_{i}_{current_datetime.strftime('%d.%m.%Y %H:%M')}') for i in range(1, 11)])
+    markup.add(*[types.InlineKeyboardButton(text=str(i), callback_data=f'write_headache_{i}_{current_datetime.strftime("%d.%m.%Y %H:%M")}') for i in range(1, 11)])
     markup.add(types.InlineKeyboardButton(text='Отменить', callback_data='cancel'))
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
