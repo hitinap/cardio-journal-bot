@@ -7,11 +7,12 @@ from telebot import types
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 
-bot = telebot.TeleBot('')
+bot = telebot.TeleBot('6476139399:AAGXvJqOi3hJSgkVuFc_xh5wwKja5Ev_xsA')
 scheduler = BackgroundScheduler()
 
 scheduler_jobs = list(store.read_csv('store/schedules.csv', store.SCHEDULES_FIELDNAMES))
 measures_raw = list(store.read_csv('store/measures.csv', store.MEASURES_FIELDNAMES))
+headaches_raw = list(store.read_csv('store/headaches.csv', store.HEADACHES_FIELDNAMES))
 
 
 def send_reminder(chat_id):
@@ -138,6 +139,100 @@ def write_blood_pressure(message):
     bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
 
 
+def write_headache_next_step(message, current_datetime=None):
+    if current_datetime is None:
+        if re.compile(r'\d+\.\d+\.\d+ \d\d:\d\d').match(message.text):
+            current_datetime = datetime.strptime(message.text, '%d.%m.%Y %H:%M')
+            bot.delete_message(message.chat.id, message.message_id - 1)
+        else:
+            bot.delete_message(message.chat.id, message.message_id - 1)
+            bot.send_message(message.chat.id, '<b>Неправильный формат.</b>', parse_mode='html')
+            write_headache(message)
+
+    text = 'Оцените свою боль по шкале от 1 до 10, где 1 - боль почти не ощущается, а 10 - боль невозможно терпеть без обезболивающего.'
+    markup = types.InlineKeyboardMarkup(row_width=5)
+    markup.add(*[types.InlineKeyboardButton(text=str(i), callback_data=f'write_headache_{i}_{current_datetime.strftime('%d.%m.%Y %H:%M')}') for i in range(1, 11)])
+    markup.add(types.InlineKeyboardButton(text='Отменить', callback_data='cancel'))
+    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
+
+
+@bot.message_handler(commands=['addheadache'])
+def write_headache(message):
+    text = '<b>Сделать запись о головной боли</b>\n\nУкажите дату и время, в которые вы ощущали головную боль.\nИспользуйте формат <b>DD.MM.YYYY HH:mm</b>, например 27.01.2024 21:26'
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(text='Сейчас', callback_data='write_headache_now'))
+    markup.add(types.InlineKeyboardButton(text='Отменить', callback_data='cancel'))
+    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=markup)
+    bot.register_next_step_handler(message, write_headache_next_step)
+
+
+def delete_headache_next_step(message):
+    if message.text == '/headachereport':
+        bot.delete_message(message.chat.id, message.message_id - 1)
+        send_headache_report(message)
+    elif re.compile(r'\d+').match(message.text):
+        user_data = store.filter_by_chat_id(headaches_raw, message.chat.id)
+        headaches_ids = list(map(lambda record: int(record['id']), user_data))
+        if int(message.text) in headaches_ids:
+            store.delete(headaches_raw, 'id', message.chat.id, int(message.text))
+            store.write_csv('store/headaches.csv', headaches_raw)
+            bot.send_message(message.chat.id, f'Запись о головной боли с id={message.text} успешно удалена!')
+        else:
+            bot.send_message(message.chat.id, f'Запись о головной боли с id={message.text} не найдена.')
+    else:
+        bot.delete_message(message.chat.id, message.message_id - 1)
+        bot.send_message(message.chat.id, '<b>Неправильный формат.</b>', parse_mode='html')
+        delete_headache(message)
+
+
+@bot.message_handler(commands=['deleteheadache'])
+def delete_headache(message):
+    text = 'Напишите id записи, которую хотите удалить, используя только цифру. Если вы не знаете id записи - воспользуйтесь командой /headachereport'
+    bot.send_message(message.chat.id, text, reply_markup=get_cancel_markup())
+    bot.register_next_step_handler(message, delete_headache_next_step)
+
+
+def build_headache_report_text(user_data, date_from, date_to):
+    return 'Записи о головной боли от {date_from} до {date_to} включительно:\n\n{records}'.format(
+        date_from=date_from,
+        date_to=date_to,
+        records='\n\n'.join(
+            '(id={id}) Дата и время: {datetime}\nОценка: {score}'.format(
+                id=record['id'],
+                datetime=record['user_datetime'],
+                score=record['score'],
+            ) for record in user_data if date_from <= datetime.strptime(record['date'], '%d.%m.%Y').date() <= date_to
+        )
+    )
+
+
+def send_headache_report_next_step(message):
+    if re.compile(r'\d+\.\d+\.\d+-\d+\.\d+\.\d+').match(message.text):
+        dates = message.text.split('-')
+        date_from = datetime.strptime(dates[0], '%d.%m.%Y').date()
+        date_to = datetime.strptime(dates[1], '%d.%m.%Y').date()
+
+        if date_to < date_from:
+            bot.delete_message(message.chat.id, message.message_id - 1)
+            bot.send_message(message.chat.id, '<b>Конечная дата не может быть меньше начальной.</b>', parse_mode='html')
+            send_headache_report(message)
+        else:
+            user_data = store.filter_by_chat_id(headaches_raw, message.chat.id)
+            text = build_headache_report_text(user_data, date_from, date_to)
+            bot.send_message(message.chat.id, text, parse_mode='html')
+    else:
+        bot.delete_message(message.chat.id, message.message_id - 1)
+        bot.send_message(message.chat.id, '<b>Неправильный формат.</b>', parse_mode='html')
+        send_headache_report(message)
+
+
+@bot.message_handler(commands=['headachereport'])
+def send_headache_report(message):
+    text = 'Укажите интервал дат (включительно), за которые хотите получить все записи о головной боли. Используйте формат <b>DD.MM.YYYY-DD.MM.YYYY</b>, например 01.12.2023-01.01.2024'
+    bot.send_message(message.chat.id, text, parse_mode='html', reply_markup=get_cancel_markup())
+    bot.register_next_step_handler(message, send_headache_report_next_step)
+
+
 @bot.callback_query_handler(func=lambda call: call.data == 'cancel')
 def callback_cancel(function_call):
     bot.delete_message(function_call.message.chat.id, function_call.message.message_id)
@@ -212,6 +307,26 @@ def callback_write_blood_pressure(function_call, next_step=False):
     text = f'Запишите показатели {"утреннего" if function_call.data == "write_morning_pressure" else "вечернего"} давления, используйте формат <b>Верхнее/Нижнее Пульс</b>. Например, 140/71 78'
     bot.send_message(function_call.message.chat.id, text, parse_mode='html', reply_markup=get_cancel_markup())
     bot.register_next_step_handler(function_call.message, write_blood_pressure_next_step, function_call)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'write_headache_now')
+def callback_write_headache_now(function_call):
+    bot.delete_message(function_call.message.chat.id, function_call.message.message_id)
+    bot.clear_step_handler_by_chat_id(chat_id=function_call.message.chat.id)
+    write_headache_next_step(function_call.message, current_datetime=datetime.now())
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('write_headache_') and call.data != 'write_headache_now')
+def callback_write_headache_score(function_call):
+    bot.delete_message(function_call.message.chat.id, function_call.message.message_id)
+    func_call_data = function_call.data[15:].split('_')
+    score = int(func_call_data[0])
+    user_dt = func_call_data[1]
+    real_dt = datetime.now().strftime('%d.%m.%Y %H:%M')
+    idx = store.get_next_id(headaches_raw, 'id')
+    headaches_raw.append({'id': idx, 'chat_id': function_call.message.chat.id, 'real_datetime': real_dt, 'user_datetime': user_dt , 'date': user_dt[:10], 'score': score})
+    store.write_csv('store/headaches.csv', headaches_raw)
+    bot.send_message(function_call.message.chat.id, f'Запись с id={idx} успешно добавлена!')
 
 
 @bot.callback_query_handler(func=lambda call:True)

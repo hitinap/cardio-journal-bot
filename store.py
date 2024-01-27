@@ -2,6 +2,7 @@ import csv
 
 SCHEDULES_FIELDNAMES = ['job_id', 'chat_id', 'day_of_week', 'hour', 'minute']
 MEASURES_FIELDNAMES = ['id', 'chat_id', 'date', 'time', 'time_of_day', 'pressure', 'pulse']
+HEADACHES_FIELDNAMES = ['id', 'chat_id', 'real_datetime', 'user_datetime', 'date', 'score']
 
 
 def read_csv(filepath, fieldnames):
